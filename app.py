@@ -1,29 +1,16 @@
 import os
 import base64
 import mimetypes
-from urllib.parse import quote, unquote
 import streamlit as st
 
 st.set_page_config(page_title="Saksitpra Gallery", layout="wide")
-
-def get_image_base64(image_path):
-    if not os.path.exists(image_path):
-        return "", "image/jpeg"
-    
-    mime_type, _ = mimetypes.guess_type(image_path)
-    if not mime_type:
-        mime_type = "image/jpeg"
-        
-    with open(image_path, "rb") as img_file:
-        b64_str = base64.b64encode(img_file.read()).decode("utf-8")
-        return b64_str, mime_type
 
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
     /* 1. ดันเนื้อหาหลักขึ้นบนสุด */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 1rem !important;
     }
     
@@ -33,11 +20,11 @@ st.markdown("""
 
     /* 2. บีบระยะห่างปุ่มเมนู Sidebar */
     div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-        gap: 0.1rem !important;
+        gap: 0.2rem !important;
     }
 
     div[data-testid="stSidebar"] div[data-testid="stElementContainer"] {
-        margin-bottom: -0.1rem !important;
+        margin-bottom: -0.2rem !important;
     }
 
     div[data-testid="stSidebar"] button {
@@ -57,38 +44,7 @@ st.markdown("""
         border-color: #0066cc !important;
     }
 
-    /* 3. สไตล์แกลเลอรีรูปภาพแบบคลิกขยายได้เลย */
-    .photo-gallery {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 14px;
-        padding: 10px 0 20px 0;
-    }
-    
-    .photo-card {
-        display: block;
-        width: 100%;
-        height: 240px;
-        background-color: #ffffff;
-        border: 1px solid #e9ecef;
-        border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-        transition: all 0.2s ease-in-out;
-    }
-    
-    .photo-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 16px rgba(0,0,0,0.12);
-        border-color: #0066cc;
-    }
-    
-    .photo-card img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
+    /* 3. การ์ดอัลบั้มหน้าแรก */
     .album-card-box {
         background: #ffffff;
         border-radius: 14px;
@@ -97,6 +53,40 @@ st.markdown("""
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         text-align: center;
         margin-bottom: 10px;
+    }
+
+    /* 4. สไตล์ซ่อนปุ่ม Streamlit ให้ซ้อนทับภาพเพื่อกดได้ทั้งรูป */
+    .clickable-photo-wrapper {
+        position: relative;
+        width: 100%;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    
+    .clickable-photo-wrapper:hover {
+        transform: translateY(-3px);
+        border-color: #0066cc;
+        box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+    }
+
+    /* ปุ่มของ Streamlit ที่ถูกครอบจะลอยทับรูปและโปร่งใส */
+    .clickable-photo-wrapper div[data-testid="stButton"] {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        z-index: 2;
+    }
+
+    .clickable-photo-wrapper div[data-testid="stButton"] button {
+        width: 100% !important;
+        height: 100% !important;
+        cursor: pointer;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -114,6 +104,9 @@ if "is_admin" not in st.session_state:
 
 if "active_album" not in st.session_state:
     st.session_state.active_album = None
+
+if "selected_image" not in st.session_state:
+    st.session_state.selected_image = None
 
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
@@ -150,22 +143,15 @@ def show_image_modal(img_path, img_name, album_name):
                 if os.path.exists(img_path):
                     os.remove(img_path)
                     st.toast("ลบรูปภาพเรียบร้อยแล้ว!")
+                    st.session_state.selected_image = None
                     st.rerun()
-
-# --- HANDLER FOR IMAGE ZOOM PARAMETER ---
-if "zoom" in st.query_params:
-    zoom_file = unquote(st.query_params["zoom"])
-    del st.query_params["zoom"]
-    if st.session_state.active_album:
-        zoom_path = os.path.join(GALLERY_DIR, st.session_state.active_album, zoom_file)
-        if os.path.exists(zoom_path):
-            show_image_modal(zoom_path, zoom_file, st.session_state.active_album)
 
 # --- SIDEBAR ---
 st.sidebar.title("📷 Gallery Menu")
 
 if st.sidebar.button("🏠 กลับหน้าหลัก"):
     st.session_state.active_album = None
+    st.session_state.selected_image = None
     st.rerun()
 
 albums_list = get_albums()
@@ -178,6 +164,7 @@ else:
         icon = "📂" if st.session_state.active_album == alb else "📁"
         if st.sidebar.button(f"{icon} {alb}", key=f"sb_alb_{alb}"):
             st.session_state.active_album = alb
+            st.session_state.selected_image = None
             st.rerun()
 
 st.sidebar.divider()
@@ -242,6 +229,12 @@ if st.session_state.active_album is None:
 else:
     current_album = st.session_state.active_album
 
+    # แสดง Modal ขยายรูป
+    if st.session_state.selected_image:
+        zoom_path = os.path.join(GALLERY_DIR, current_album, st.session_state.selected_image)
+        if os.path.exists(zoom_path):
+            show_image_modal(zoom_path, st.session_state.selected_image, current_album)
+
     st.title(f"📁 อัลบั้ม: {current_album}")
     
     if st.session_state.is_admin:
@@ -267,20 +260,17 @@ else:
     if not images:
         st.warning("ยังไม่มีรูปภาพในอัลบั้มนี้")
     else:
-        st.caption("💡 คลิกที่ตัวรูปภาพใดก็ได้เพื่อขยายดูภาพใหญ่")
+        st.caption("💡 คลิกที่ตัวรูปภาพเพื่อขยายดูภาพใหญ่")
         
-        gallery_html = '<div class="photo-gallery">'
-        for img_name in images:
+        cols = st.columns(4)
+        for idx, img_name in enumerate(images):
             img_path = os.path.join(GALLERY_DIR, current_album, img_name)
-            img_b64, mime_type = get_image_base64(img_path)
-            img_src = f"data:{mime_type};base64,{img_b64}"
             
-            encoded_img = quote(img_name)
-            gallery_html += (
-                f'<a href="?zoom={encoded_img}" target="_self" class="photo-card" title="คลิกเพื่อขยายดูรูป">'
-                f'<img src="{img_src}" alt="{img_name}" />'
-                f'</a>'
-            )
-        gallery_html += '</div>'
-        
-        st.markdown(gallery_html, unsafe_allow_html=True)
+            with cols[idx % 4]:
+                # ครอบรูปด้วย DIV พิเศษ และใส่ปุ่มโปร่งใสทับด้านบน
+                st.markdown('<div class="clickable-photo-wrapper">', unsafe_allow_html=True)
+                st.image(img_path, use_container_width=True)
+                if st.button("Click", key=f"photo_{img_name}"):
+                    st.session_state.selected_image = img_name
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
