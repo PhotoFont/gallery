@@ -44,7 +44,22 @@ st.markdown("""
         border-color: #0066cc !important;
     }
 
-    /* 3. การ์ดอัลบั้มหน้าแรก */
+    /* 3. การ์ดรูปภาพแบบสะอาดตา */
+    .photo-card-container {
+        background: #ffffff;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        margin-bottom: 16px;
+        transition: transform 0.2s ease;
+    }
+
+    .photo-card-container:hover {
+        transform: translateY(-2px);
+        border-color: #0066cc;
+    }
+
     .album-card-box {
         background: #ffffff;
         border-radius: 14px;
@@ -53,46 +68,6 @@ st.markdown("""
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         text-align: center;
         margin-bottom: 10px;
-    }
-
-    /* 4. สไตล์ซ้อนปุ่มให้ครอบทั้งรูปภาพอย่างแม่นยำ */
-    .clickable-photo-wrapper {
-        position: relative;
-        width: 100%;
-        border-radius: 10px;
-        overflow: hidden;
-        border: 1px solid #e9ecef;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-        transition: transform 0.2s ease, border-color 0.2s ease;
-        margin-bottom: 12px;
-    }
-    
-    .clickable-photo-wrapper:hover {
-        transform: translateY(-3px);
-        border-color: #0066cc;
-        box-shadow: 0 6px 14px rgba(0,0,0,0.12);
-    }
-
-    /* ซ่อนเฉพาะปุ่มที่อยู่ใน wrapper การ์ดรูปภาพเท่านั้น */
-    .clickable-photo-wrapper div[data-testid="stElementContainer"]:has(button[data-testid="baseButton-secondary"]) {
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-        opacity: 0 !important;
-        z-index: 10 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    .clickable-photo-wrapper button {
-        width: 100% !important;
-        height: 100% !important;
-        min-height: 220px !important;
-        border: none !important;
-        background: transparent !important;
-        cursor: pointer !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -110,9 +85,6 @@ if "is_admin" not in st.session_state:
 
 if "active_album" not in st.session_state:
     st.session_state.active_album = None
-
-if "selected_image" not in st.session_state:
-    st.session_state.selected_image = None
 
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
@@ -135,30 +107,17 @@ def get_images(album_name):
         if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
     ])
 
-# Dialog ขยายรูปภาพแบบเต็มจอ พร้อมปุ่มลบรูป
+# Dialog ขยายรูปภาพแบบเต็มจอ
 @st.dialog("🖼️ ภาพขยาย", width="large")
 def show_image_modal(img_path, img_name, album_name):
     st.image(img_path, use_container_width=True)
-    
-    st.write("---")
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.caption(f"📁 อัลบั้ม: **{album_name}** | 📄 ไฟล์: `{img_name}`")
-    with col2:
-        if st.session_state.is_admin:
-            if st.button("🗑️ ลบรูปภาพนี้", type="primary", use_container_width=True, key="btn_delete_img_modal"):
-                if os.path.exists(img_path):
-                    os.remove(img_path)
-                    st.toast("ลบรูปภาพเรียบร้อยแล้ว!")
-                    st.session_state.selected_image = None
-                    st.rerun()
+    st.caption(f"📁 อัลบั้ม: **{album_name}** | 📄 ไฟล์: `{img_name}`")
 
 # --- SIDEBAR ---
 st.sidebar.title("📷 Gallery Menu")
 
 if st.sidebar.button("🏠 กลับหน้าหลัก"):
     st.session_state.active_album = None
-    st.session_state.selected_image = None
     st.rerun()
 
 albums_list = get_albums()
@@ -171,7 +130,6 @@ else:
         icon = "📂" if st.session_state.active_album == alb else "📁"
         if st.sidebar.button(f"{icon} {alb}", key=f"sb_alb_{alb}"):
             st.session_state.active_album = alb
-            st.session_state.selected_image = None
             st.rerun()
 
 st.sidebar.divider()
@@ -236,12 +194,6 @@ if st.session_state.active_album is None:
 else:
     current_album = st.session_state.active_album
 
-    # แสดง Modal ขยายรูป
-    if st.session_state.selected_image:
-        zoom_path = os.path.join(GALLERY_DIR, current_album, st.session_state.selected_image)
-        if os.path.exists(zoom_path):
-            show_image_modal(zoom_path, st.session_state.selected_image, current_album)
-
     st.title(f"📁 อัลบั้ม: {current_album}")
     
     if st.session_state.is_admin:
@@ -267,16 +219,28 @@ else:
     if not images:
         st.warning("ยังไม่มีรูปภาพในอัลบั้มนี้")
     else:
-        st.caption("💡 คลิกที่ตัวรูปภาพเพื่อขยายดูภาพใหญ่")
-        
-        cols = st.columns(4)
+        cols = st.columns(3)
         for idx, img_name in enumerate(images):
             img_path = os.path.join(GALLERY_DIR, current_album, img_name)
             
-            with cols[idx % 4]:
-                st.markdown('<div class="clickable-photo-wrapper">', unsafe_allow_html=True)
+            with cols[idx % 3]:
+                st.markdown('<div class="photo-card-container">', unsafe_allow_html=True)
                 st.image(img_path, use_container_width=True)
-                if st.button("", key=f"photo_{img_name}"):
-                    st.session_state.selected_image = img_name
-                    st.rerun()
+                
+                # ปุ่มการทำงานใต้อนุภาคการ์ด
+                if st.session_state.is_admin:
+                    btn_col1, btn_col2 = st.columns([1, 1])
+                    with btn_col1:
+                        if st.button("🔍 ขยาย", key=f"zoom_{img_name}", use_container_width=True):
+                            show_image_modal(img_path, img_name, current_album)
+                    with btn_col2:
+                        if st.button("🗑️ ลบ", key=f"del_{img_name}", type="primary", use_container_width=True):
+                            if os.path.exists(img_path):
+                                os.remove(img_path)
+                                st.toast("ลบรูปภาพเรียบร้อยแล้ว!")
+                                st.rerun()
+                else:
+                    if st.button("🔍 ขยายรูปภาพ", key=f"zoom_user_{img_name}", use_container_width=True):
+                        show_image_modal(img_path, img_name, current_album)
+                        
                 st.markdown('</div>', unsafe_allow_html=True)
