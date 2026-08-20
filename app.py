@@ -10,12 +10,18 @@ st.markdown("""
 <style>
     /* 1. ดันเนื้อหาหลักขึ้นบนสุด */
     .block-container {
-        padding-top: 1.5rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 1rem !important;
     }
     
+    /* ซ่อนเฉพาะพื้นหลังและแบนเนอร์ Header แต่เก็บปุ่มเปิด/ปิด Sidebar ไว้ */
     header[data-testid="stHeader"] {
-        display: none !important;
+        background: transparent !important;
+    }
+    
+    /* แต่งปุ่มเปิด/ปิด Sidebar ให้เห็นเด่นชัดขึ้น */
+    button[data-testid="stHeaderIconButton"] {
+        color: #333333 !important;
     }
 
     /* 2. บีบระยะห่างปุ่มเมนู Sidebar */
@@ -227,7 +233,6 @@ else:
                 st.markdown('<div class="photo-card-container">', unsafe_allow_html=True)
                 st.image(img_path, use_container_width=True)
                 
-                # ปุ่มการทำงานใต้อนุภาคการ์ด
                 if st.session_state.is_admin:
                     btn_col1, btn_col2 = st.columns([1, 1])
                     with btn_col1:
