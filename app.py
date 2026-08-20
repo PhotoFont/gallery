@@ -1,16 +1,24 @@
 import os
 import base64
+import mimetypes
+from urllib.parse import quote, unquote
 import streamlit as st
 
 st.set_page_config(page_title="Photo Gallery", layout="wide")
 
 def get_image_base64(image_path):
     if not os.path.exists(image_path):
-        return ""
+        return "", "image/jpeg"
+    
+    mime_type, _ = mimetypes.guess_type(image_path)
+    if not mime_type:
+        mime_type = "image/jpeg"
+        
     with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode("utf-8")
+        b64_str = base64.b64encode(img_file.read()).decode("utf-8")
+        return b64_str, mime_type
 
-# --- CUSTOM CSS จัด Layout ให้ชิดสวยงาม และรองรับการคลิกรูป ---
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
     /* แกลเลอรีจัดเรียงรูปภาพแบบ Grid แน่นสวยงาม */
@@ -44,7 +52,7 @@ st.markdown("""
     .photo-card img {
         width: 100%;
         height: 100%;
-        object-fit: contain; /* รูปองค์พระสมสัดส่วน ไม่โดนตัดขอบ */
+        object-fit: contain;
         padding: 6px;
         background-color: #f8f9fa;
     }
@@ -162,13 +170,15 @@ def show_image_modal(img_path, img_name, album_name):
                 if os.path.exists(img_path):
                     os.remove(img_path)
                     st.toast("ลบรูปภาพเรียบร้อยแล้ว!")
+                    if "zoom" in st.query_params:
+                        del st.query_params["zoom"]
                     st.rerun()
 
-# --- SYSTEM QUERY PARAMS HANDLER (สำหรับการคลิกรูป) ---
+# --- SYSTEM QUERY PARAMS HANDLER ---
 query_params = st.query_params
 
 if "album" in query_params:
-    alb_param = query_params["album"]
+    alb_param = unquote(query_params["album"])
     if alb_param in get_albums():
         st.session_state.active_album = alb_param
 
@@ -242,20 +252,22 @@ if st.session_state.active_album is None:
             cover_img_path = os.path.join(GALLERY_DIR, album, images[0]) if images else None
             
             if cover_img_path and os.path.exists(cover_img_path):
-                img_b64 = get_image_base64(cover_img_path)
-                img_src = f"data:image/jpeg;base64,{img_b64}"
+                img_b64, mime_type = get_image_base64(cover_img_path)
+                img_src = f"data:{mime_type};base64,{img_b64}"
             else:
                 img_src = "https://via.placeholder.com/400x300?text=No+Images"
             
-            album_html += f'''
-            <a href="?album={album}" target="_self" class="album-card">
-                <img src="{img_src}" alt="{album}" />
-                <div class="album-info">
-                    <div class="album-title">📁 {album}</div>
-                    <div class="album-count">{len(images)} รูปภาพ</div>
-                </div>
-            </a>
-            '''
+            encoded_album = quote(album)
+            # สำคัญ: เขียน HTML แบบไม่มี Indentation เพื่อไม่ให้ Markdown มองเป็น Code Block
+            album_html += (
+                f'<a href="?album={encoded_album}" target="_self" class="album-card">'
+                f'<img src="{img_src}" alt="{album}" />'
+                f'<div class="album-info">'
+                f'<div class="album-title">📁 {album}</div>'
+                f'<div class="album-count">{len(images)} รูปภาพ</div>'
+                f'</div>'
+                f'</a>'
+            )
         album_html += '</div>'
         st.markdown(album_html, unsafe_allow_html=True)
 
@@ -265,7 +277,7 @@ else:
     
     # ตรวจสอบว่ามีการคลิกรูปเพื่อซูมหรือไม่
     if "zoom" in st.query_params:
-        zoom_file = st.query_params["zoom"]
+        zoom_file = unquote(st.query_params["zoom"])
         del st.query_params["zoom"]  # ล้างเพื่อไม่ให้เปิดค้างเมื่อปิดป๊อปอัป
         zoom_path = os.path.join(GALLERY_DIR, current_album, zoom_file)
         if os.path.exists(zoom_path):
@@ -292,18 +304,20 @@ else:
     else:
         st.caption("💡 คลิกที่ตัวรูปภาพใดก็ได้เพื่อขยายดูภาพใหญ่")
         
-        # เรนเดอร์รูปภาพแบบ Grid แน่นสวยงาม และสามารถคลิกรูปเพื่อซูมได้เลย
         gallery_html = '<div class="photo-gallery">'
         for img_name in images:
             img_path = os.path.join(GALLERY_DIR, current_album, img_name)
-            img_b64 = get_image_base64(img_path)
-            img_src = f"data:image/jpeg;base64,{img_b64}"
+            img_b64, mime_type = get_image_base64(img_path)
+            img_src = f"data:{mime_type};base64,{img_b64}"
             
-            gallery_html += f'''
-            <a href="?album={current_album}&zoom={img_name}" target="_self" class="photo-card" title="คลิกเพื่อขยายดูรูป">
-                <img src="{img_src}" alt="{img_name}" />
-            </a>
-            '''
+            encoded_album = quote(current_album)
+            encoded_img = quote(img_name)
+            # สำคัญ: เขียน HTML แบบไม่มี Indentation เพื่อไม่ให้ Markdown มองเป็น Code Block
+            gallery_html += (
+                f'<a href="?album={encoded_album}&zoom={encoded_img}" target="_self" class="photo-card" title="คลิกเพื่อขยายดูรูป">'
+                f'<img src="{img_src}" alt="{img_name}" />'
+                f'</a>'
+            )
         gallery_html += '</div>'
         
         st.markdown(gallery_html, unsafe_allow_html=True)
