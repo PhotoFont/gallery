@@ -1,19 +1,28 @@
 import os
+import base64
 import streamlit as st
 
 st.set_page_config(page_title="Saksitpra Gallery", layout="wide")
 
-# CSS จัดแต่งรูปภาพหน้าแรกและการ์ดอัลบั้ม
+def get_image_base64(image_path):
+    if not os.path.exists(image_path):
+        return ""
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode("utf-8")
+
+# Custom CSS จัดระเบียบการแสดงผล
 st.markdown("""
 <style>
+    /* ปรับแต่งภาพหน้าแรก (ไม่โดนตัด สมส่วน 100%) */
     div[data-testid="stColumn"] img {
-        border-radius: 8px 8px 0 0;
-        object-fit: cover !important;
-        height: 180px !important;
+        object-fit: contain !important;
+        max-height: 240px !important;
+        width: 100% !important;
+        border-radius: 8px;
+        background-color: #f8f9fa;
     }
-    div[data-testid="stColumn"] button[title="View fullscreen"] {
-        display: none !important;
-    }
+
+    /* ปุ่มเลือกอัลบั้ม Sidebar */
     .sidebar-album-btn button {
         width: 100% !important;
         text-align: left !important;
@@ -27,10 +36,15 @@ st.markdown("""
         background-color: #e9ecef !important;
         color: #0066cc !important;
     }
+
+    /* ปุ่มเปิดอัลบั้มหน้าแรก */
+    .album-btn-main button {
+        width: 100% !important;
+        margin-top: 6px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ชี้ไปยังโฟลเดอร์ที่จะทำ Volume Mount ใน Coolify (/app/gallery)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 GALLERY_DIR = os.path.join(BASE_DIR, 'gallery')
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
@@ -61,10 +75,6 @@ def get_images(album_name):
         f for f in os.listdir(album_path)
         if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
     ]
-
-@st.dialog("🔍 ภาพขยาย")
-def show_image_modal(img_path, caption):
-    st.image(img_path, caption=caption, use_container_width=True)
 
 # --- SIDEBAR ---
 st.sidebar.title("📷 Menu")
@@ -120,32 +130,33 @@ else:
 
 # --- MAIN PAGE RENDERING ---
 
-# 1. Grid View (หน้าแรก)
+# 1. Grid View (หน้าแรก - แสดงปกอัลบั้ม)
 if st.session_state.active_album is None:
     st.title("Albums")
-    st.caption("เลือกดูอัลบั้มรูปภาพจากรายการด้านล่างหรือเมนูด้านซ้าย")
+    st.caption("เลือกดูอัลบั้มรูปภาพจากปุ่มชื่ออัลบั้มด้านล่างหรือเมนูด้านซ้าย")
 
     if not albums_list:
         st.info("ยังไม่มีอัลบั้มรูปภาพ")
     else:
-        cols = st.columns(4)
+        cols = st.columns(3)
         for idx, album in enumerate(albums_list):
             images = get_images(album)
             cover_img = os.path.join(GALLERY_DIR, album, images[0]) if images else None
             
-            with cols[idx % 4]:
+            with cols[idx % 3]:
                 if cover_img:
                     st.image(cover_img, use_container_width=True)
                 else:
                     st.image("https://via.placeholder.com/400x300?text=No+Cover", use_container_width=True)
                 
-                if st.button(f"📁 {album}", key=f"open_btn_{album}", use_container_width=True):
+                st.markdown('<div class="album-btn-main">', unsafe_allow_html=True)
+                if st.button(f"📁 เข้าชมอัลบั้ม {album} ({len(images)} รูป)", key=f"open_btn_{album}"):
                     st.session_state.active_album = album
                     st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.write("")
 
-                st.caption(f"📷 {len(images)} photos")
-
-# 2. Album Detail View (หน้าแสดงรูปในอัลบั้ม)
+# 2. Album Detail View (หน้าแสดงรูป - คลิกรูปเพื่อซูมได้ทันที ไม่ต้องกดปุ่ม)
 else:
     current_album = st.session_state.active_album
     st.title(f"📁 อัลบั้ม: {current_album}")
@@ -167,17 +178,73 @@ else:
     if not images:
         st.warning("ยังไม่มีรูปภาพในอัลบั้มนี้")
     else:
-        st.caption("💡 คลิกปุ่มเพื่อซูมดูขนาดใหญ่")
+        st.caption("💡 คลิกที่ตัวรูปภาพเพื่อเปิดดูภาพขยายใหญ่ได้ทันที")
         cols = st.columns(3)
         for idx, img_name in enumerate(images):
             img_path = os.path.join(GALLERY_DIR, current_album, img_name)
+            img_b64 = get_image_base64(img_path)
+            img_src = f"data:image/jpeg;base64,{img_b64}"
+            
             with cols[idx % 3]:
-                st.image(img_path, use_container_width=True)
-                
-                if st.button(f"🔍 {img_name}", key=f"zoom_{img_name}"):
-                    show_image_modal(img_path, img_name)
+                # ใช้นวัตกรรม HTML Lightbox คลิกรูปแล้วซูมเปิด Modal ขยายทันที
+                zoom_html = f"""
+                <style>
+                    .zoom-img-{idx} {{
+                        width: 100%;
+                        max-height: 250px;
+                        object-fit: contain;
+                        background: #f8f9fa;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: transform 0.2s ease;
+                    }}
+                    .zoom-img-{idx}:hover {{
+                        transform: scale(1.02);
+                    }}
+                    
+                    /* Modal Styles */
+                    .modal-{idx} {{
+                        display: none;
+                        position: fixed;
+                        z-index: 99999;
+                        padding-top: 30px;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        height: 100%;
+                        overflow: auto;
+                        background-color: rgba(0,0,0,0.85);
+                    }}
+                    .modal-content-{idx} {{
+                        margin: auto;
+                        display: block;
+                        max-width: 90%;
+                        max-height: 85vh;
+                        border-radius: 6px;
+                        object-fit: contain;
+                    }}
+                    .close-{idx} {{
+                        position: absolute;
+                        top: 15px;
+                        right: 35px;
+                        color: #f1f1f1;
+                        font-size: 40px;
+                        font-weight: bold;
+                        cursor: pointer;
+                    }}
+                </style>
+
+                <img class="zoom-img-{idx}" src="{img_src}" onclick="document.getElementById('myModal-{idx}').style.display='block'">
+
+                <div id="myModal-{idx}" class="modal-{idx}" onclick="this.style.display='none'">
+                    <span class="close-{idx}">&times;</span>
+                    <img class="modal-content-{idx}" src="{img_src}">
+                </div>
+                """
+                st.components.v1.html(zoom_html, height=260)
                 
                 if st.session_state.is_admin:
-                    if st.button("🗑️ ลบรูปนี้", key=f"del_{img_name}"):
+                    if st.button(f"🗑️ ลบรูป {img_name}", key=f"del_{img_name}", use_container_width=True):
                         os.remove(img_path)
                         st.rerun()
+                st.write("")
