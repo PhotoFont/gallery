@@ -35,7 +35,7 @@ st.markdown("""
 
 GALLERY_DIR = os.path.join(os.path.dirname(__file__), 'gallery')
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
-ADMIN_PASSWORD = "adminsecretpass"  # เปลี่ยนรหัสผ่านตรงนี้
+ADMIN_PASSWORD = "21020166"  # เปลี่ยนรหัสผ่านตรงนี้
 
 if not os.path.exists(GALLERY_DIR):
     os.makedirs(GALLERY_DIR)
