@@ -55,7 +55,7 @@ st.markdown("""
         margin-bottom: 10px;
     }
 
-    /* 4. สไตล์ซ่อนปุ่ม Streamlit ให้ซ้อนทับภาพเพื่อกดได้ทั้งรูป */
+    /* 4. สไตล์ซ้อนปุ่มให้ครอบทั้งรูปภาพอย่างแม่นยำ */
     .clickable-photo-wrapper {
         position: relative;
         width: 100%;
@@ -64,6 +64,7 @@ st.markdown("""
         border: 1px solid #e9ecef;
         box-shadow: 0 2px 6px rgba(0,0,0,0.06);
         transition: transform 0.2s ease, border-color 0.2s ease;
+        margin-bottom: 12px;
     }
     
     .clickable-photo-wrapper:hover {
@@ -72,21 +73,26 @@ st.markdown("""
         box-shadow: 0 6px 14px rgba(0,0,0,0.12);
     }
 
-    /* ปุ่มของ Streamlit ที่ถูกครอบจะลอยทับรูปและโปร่งใส */
-    .clickable-photo-wrapper div[data-testid="stButton"] {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        z-index: 2;
-    }
-
-    .clickable-photo-wrapper div[data-testid="stButton"] button {
+    /* ซ่อนเฉพาะปุ่มที่อยู่ใน wrapper การ์ดรูปภาพเท่านั้น */
+    .clickable-photo-wrapper div[data-testid="stElementContainer"]:has(button[data-testid="baseButton-secondary"]) {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
         width: 100% !important;
         height: 100% !important;
-        cursor: pointer;
+        opacity: 0 !important;
+        z-index: 10 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .clickable-photo-wrapper button {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 220px !important;
+        border: none !important;
+        background: transparent !important;
+        cursor: pointer !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -129,17 +135,18 @@ def get_images(album_name):
         if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
     ])
 
-# Dialog ขยายรูปภาพแบบเต็มจอ
+# Dialog ขยายรูปภาพแบบเต็มจอ พร้อมปุ่มลบรูป
 @st.dialog("🖼️ ภาพขยาย", width="large")
 def show_image_modal(img_path, img_name, album_name):
     st.image(img_path, use_container_width=True)
     
+    st.write("---")
     col1, col2 = st.columns([3, 1])
     with col1:
         st.caption(f"📁 อัลบั้ม: **{album_name}** | 📄 ไฟล์: `{img_name}`")
     with col2:
         if st.session_state.is_admin:
-            if st.button("🗑️ ลบรูปภาพนี้", type="primary", use_container_width=True):
+            if st.button("🗑️ ลบรูปภาพนี้", type="primary", use_container_width=True, key="btn_delete_img_modal"):
                 if os.path.exists(img_path):
                     os.remove(img_path)
                     st.toast("ลบรูปภาพเรียบร้อยแล้ว!")
@@ -267,10 +274,9 @@ else:
             img_path = os.path.join(GALLERY_DIR, current_album, img_name)
             
             with cols[idx % 4]:
-                # ครอบรูปด้วย DIV พิเศษ และใส่ปุ่มโปร่งใสทับด้านบน
                 st.markdown('<div class="clickable-photo-wrapper">', unsafe_allow_html=True)
                 st.image(img_path, use_container_width=True)
-                if st.button("Click", key=f"photo_{img_name}"):
+                if st.button("", key=f"photo_{img_name}"):
                     st.session_state.selected_image = img_name
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
