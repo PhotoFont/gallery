@@ -3,7 +3,7 @@ import streamlit as st
 
 st.set_page_config(page_title="Saksitpra Gallery", layout="wide")
 
-# Custom CSS ตกแต่ง Card และการคลิก
+# Custom CSS ตกแต่ง Card และ Sidebar Menu
 st.markdown("""
 <style>
     .album-card {
@@ -13,21 +13,55 @@ st.markdown("""
         margin-bottom: 20px;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         background-color: #ffffff;
+        padding-bottom: 8px;
     }
     .album-card:hover {
         transform: translateY(-4px);
-        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.08);
     }
+    
+    .album-card img {
+        height: 180px !important;
+        object-fit: cover !important;
+        width: 100% !important;
+    }
+
     .album-sub {
-        font-size: 0.85rem;
-        color: #666666;
-        margin-top: -10px;
-        margin-bottom: 10px;
-        padding-left: 4px;
+        font-size: 0.8rem;
+        color: #777777;
+        padding-left: 10px;
+        margin-top: -2px;
     }
-    /* ปรับแต่งปุ่มชื่ออัลบั้มให้ดูเหมือน Heading */
-    div[data-testid="stButton"] > button {
-        text-align: left;
+
+    /* ปุ่มชื่ออัลบั้มในหน้าแรก */
+    div[data-testid="stColumn"] button {
+        width: 100% !important;
+        border: none !important;
+        background: transparent !important;
+        text-align: left !important;
+        padding: 6px 10px 2px 10px !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        color: #222222 !important;
+    }
+    div[data-testid="stColumn"] button:hover {
+        color: #0066cc !important;
+        background-color: #f8f9fa !important;
+    }
+
+    /* ปุ่มรายการอัลบั้มใน Sidebar */
+    .sidebar-album-btn button {
+        width: 100% !important;
+        text-align: left !important;
+        border: none !important;
+        background: transparent !important;
+        padding: 6px 8px !important;
+        font-size: 0.9rem !important;
+        border-radius: 4px !important;
+    }
+    .sidebar-album-btn button:hover {
+        background-color: #e9ecef !important;
+        color: #0066cc !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -71,7 +105,27 @@ if st.sidebar.button("🏠 กลับหน้าหลัก"):
     st.session_state.active_album = None
     st.rerun()
 
+# ----------------
+# เมนูรายการอัลบั้มอัตโนมัติ (Dynamic Album List)
+# ----------------
+albums_list = get_albums()
+st.sidebar.subheader("📁 อัลบั้มทั้งหมด")
+
+if not albums_list:
+    st.sidebar.caption("ยังไม่มีอัลบั้ม")
+else:
+    for alb in albums_list:
+        # ตรวจสอบเพื่อไฮไลต์อัลบั้มที่เลือกอยู่ปัจจุบัน
+        icon = "📂" if st.session_state.active_album == alb else "📁"
+        st.sidebar.markdown('<div class="sidebar-album-btn">', unsafe_allow_html=True)
+        if st.sidebar.button(f"{icon} {alb}", key=f"sb_alb_{alb}"):
+            st.session_state.active_album = alb
+            st.rerun()
+        st.sidebar.markdown('</div>', unsafe_allow_html=True)
+
 st.sidebar.divider()
+
+# --- ระบบ ADMIN ---
 st.sidebar.subheader("🔐 ระบบ Admin")
 
 if not st.session_state.is_admin:
@@ -103,43 +157,36 @@ else:
                 st.sidebar.warning("มีชื่ออัลบั้มนี้อยู่แล้ว")
 
 # --- MAIN PAGE RENDERING ---
-albums = get_albums()
 
 # 1. Grid View (หน้าแรก)
 if st.session_state.active_album is None:
     st.title("Recent Projects / Albums")
-    st.caption("คลิกที่รูปปกหรือชื่ออัลบั้มเพื่อเข้าชมรูปภาพภายใน")
+    st.caption("คลิกเลือกอัลบั้มที่ต้องการเข้าชม")
 
-    if not albums:
+    if not albums_list:
         st.info("ยังไม่มีอัลบั้มรูปภาพ")
     else:
         cols = st.columns(4)
-        for idx, album in enumerate(albums):
+        for idx, album in enumerate(albums_list):
             images = get_images(album)
             cover_img = os.path.join(GALLERY_DIR, album, images[0]) if images else None
             
             with cols[idx % 4]:
                 st.markdown('<div class="album-card">', unsafe_allow_html=True)
                 
-                # แสดงรูปปก
                 if cover_img:
                     st.image(cover_img, use_container_width=True)
                 else:
                     st.image("https://via.placeholder.com/400x300?text=No+Cover", use_container_width=True)
                 
-                # กดที่ปุ่มรูปปก หรือ ปุ่มชื่ออัลบั้ม เพื่อเข้าอัลบั้ม
-                if st.button(f"🖼️ ดูอัลบั้มนี้", key=f"img_click_{album}"):
-                    st.session_state.active_album = album
-                    st.rerun()
-
-                if st.button(f"📁 {album}", key=f"title_click_{album}"):
+                if st.button(f"📁 {album}", key=f"click_{album}"):
                     st.session_state.active_album = album
                     st.rerun()
 
                 st.markdown(f'<div class="album-sub">{len(images)} photos</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-# 2. Album Detail View
+# 2. Album Detail View (หน้าแสดงรูปในอัลบั้ม)
 else:
     current_album = st.session_state.active_album
     st.title(f"📁 อัลบั้ม: {current_album}")
