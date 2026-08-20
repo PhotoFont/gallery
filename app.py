@@ -24,7 +24,24 @@ st.markdown("""
         color: #333333 !important;
     }
 
-    /* 2. บีบระยะห่างปุ่มเมนู Sidebar */
+    /* 2. แถบข้อความติดต่อช่างด้านบนสุด */
+    .contact-header-box {
+        background: linear-gradient(135deg, #2c3e50, #1a252f);
+        color: #ffffff;
+        padding: 14px 20px;
+        border-radius: 12px;
+        text-align: center;
+        font-size: 1.1rem;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        margin-bottom: 20px;
+        border-left: 5px solid #d4af37; /* สีทองมงคล */
+    }
+    .contact-header-box span {
+        color: #f1c40f; /* สีเหลืองทองสำหรับเน้นเบอร์และไลน์ */
+    }
+
+    /* 3. บีบระยะห่างปุ่มเมนู Sidebar */
     div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
         gap: 0.2rem !important;
     }
@@ -50,7 +67,7 @@ st.markdown("""
         border-color: #0066cc !important;
     }
 
-    /* 3. การ์ดรูปภาพแบบสะอาดตา */
+    /* 4. การ์ดรูปภาพแบบสะอาดตา */
     .photo-card-container {
         background: #ffffff;
         border: 1px solid #e9ecef;
@@ -170,6 +187,13 @@ else:
                 st.sidebar.warning("มีชื่ออัลบั้มนี้อยู่แล้ว")
 
 # --- MAIN PAGE RENDERING ---
+
+# แสดงแถบติดต่อด้านบนสุดทุกหน้า
+st.markdown("""
+<div class="contact-header-box">
+    🪵 สนใจติดต่องานเลี่ยมกรอบไม้มงคล โทร <span>0854804152</span> &nbsp;|&nbsp; Line ID : <span>font2555</span>
+</div>
+""", unsafe_allow_html=True)
 
 # 1. หน้าหลัก - แสดงรายการอัลบั้ม
 if st.session_state.active_album is None:
