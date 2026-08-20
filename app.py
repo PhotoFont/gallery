@@ -1,46 +1,82 @@
 import os
+import base64
 import streamlit as st
 
 st.set_page_config(page_title="Saksitpra Gallery", layout="wide")
 
-# Custom CSS ทำ Card ปุ่มกดที่ครอบทั้งรูปและชื่ออัลบั้ม
+# ฟังก์ชันแปลงรูปภาพเป็น Base64 เพื่อใส่ใน HTML/CSS Button
+def get_image_base64(image_path):
+    if not os.path.exists(image_path):
+        return ""
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode("utf-8")
+
+# Custom CSS แปลง st.button หน้าแรกให้กลายเป็นรูปภาพการ์ดแบบเต็มตัว
 st.markdown("""
 <style>
-    /* ซ่อนปุ่มแบบยัดไส้รูปให้แนบเนียน */
-    .album-card-container {
+    /* ซ่อนปุ่ม Fullscreen Default ของ Streamlit */
+    button[title="View fullscreen"] {
+        display: none !important;
+    }
+
+    /* ตกแต่งโครงสร้างการ์ดอัลบั้ม */
+    .album-card-wrapper {
         border: 1px solid #e0e0e0;
         border-radius: 8px;
         overflow: hidden;
-        background: #fff;
+        background: #ffffff;
         margin-bottom: 20px;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    .album-card-container:hover {
+    .album-card-wrapper:hover {
         transform: translateY(-4px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.1);
-    }
-    
-    /* บังคับขนาดรูปปกหน้าแรก */
-    .album-card-container img {
-        height: 180px !important;
-        object-fit: cover !important;
-        width: 100% !important;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.12);
     }
 
-    .album-info {
-        padding: 8px 10px;
+    /* ปรับแต่งปุ่มรูปภาพปกให้ออกแบบเหมือน Clickable Image */
+    .img-btn-container button {
+        width: 100% !important;
+        height: 180px !important;
+        border: none !important;
+        border-radius: 0px !important;
+        background-position: center !important;
+        background-size: cover !important;
+        background-repeat: no-repeat !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
     }
-    .album-title-text {
-        font-weight: 600;
-        font-size: 0.95rem;
-        color: #111;
+    .img-btn-container button:hover {
+        opacity: 0.9;
     }
+    .img-btn-container button p {
+        display: none !important; /* ซ่อนข้อความในปุ่มรูป */
+    }
+
+    /* ปรับแต่งปุ่มชื่ออัลบั้มด้านล่างรูป */
+    .title-btn-container button {
+        width: 100% !important;
+        border: none !important;
+        background: transparent !important;
+        text-align: left !important;
+        padding: 8px 12px 2px 12px !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        color: #111111 !important;
+        box-shadow: none !important;
+    }
+    .title-btn-container button:hover {
+        color: #0066cc !important;
+        background: #f8f9fa !important;
+    }
+
     .album-sub-text {
         font-size: 0.8rem;
-        color: #777;
+        color: #777777;
+        padding: 0 12px 8px 12px;
     }
 
-    /* ตกแต่งปุ่มเลือกอัลบั้มที่ Sidebar */
+    /* เมนูอัลบั้มที่ Sidebar */
     .sidebar-album-btn button {
         width: 100% !important;
         text-align: left !important;
@@ -146,7 +182,7 @@ else:
 # 1. Grid View (หน้าแรก)
 if st.session_state.active_album is None:
     st.title("Albums")
-    st.caption("คลิกที่รูปหรือชื่ออัลบั้มเพื่อเข้าชมรูปภาพภายใน")
+    st.caption("คลิกที่รูปภาพหรือชื่ออัลบั้มเพื่อเข้าชมรูปภาพภายใน")
 
     if not albums_list:
         st.info("ยังไม่มีอัลบั้มรูปภาพ")
@@ -154,22 +190,31 @@ if st.session_state.active_album is None:
         cols = st.columns(4)
         for idx, album in enumerate(albums_list):
             images = get_images(album)
-            cover_img = os.path.join(GALLERY_DIR, album, images[0]) if images else None
+            cover_img_path = os.path.join(GALLERY_DIR, album, images[0]) if images else ""
+            img_b64 = get_image_base64(cover_img_path)
             
             with cols[idx % 4]:
-                st.markdown('<div class="album-card-container">', unsafe_allow_html=True)
+                st.markdown('<div class="album-card-wrapper">', unsafe_allow_html=True)
                 
-                # แสดงรูปภาพปก
-                if cover_img:
-                    st.image(cover_img, use_container_width=True)
-                else:
-                    st.image("https://via.placeholder.com/400x300?text=No+Cover", use_container_width=True)
+                # กำหนดรูปภาพพื้นหลังให้ปุ่มกดผ่าน CSS Dynamic Style
+                bg_style = f"background-image: url('data:image/jpeg;base64,{img_b64}');" if img_b64 else "background-color: #eee;"
+                st.markdown(f'<style>.img-btn-{idx} button {{ {bg_style} }}</style>', unsafe_allow_html=True)
                 
-                # ปุ่มกดเข้าสู่อัลบั้ม (ใช้นามสัญลักษณ์การ์ด)
-                if st.button(f"📁 {album} ({len(images)} photos)", key=f"card_btn_{album}", use_container_width=True):
+                # ปุ่มกดที่รูปปก
+                st.markdown(f'<div class="img-btn-container img-btn-{idx}">', unsafe_allow_html=True)
+                if st.button(" ", key=f"cover_click_{album}"):
                     st.session_state.active_album = album
                     st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
+                # ปุ่มกดที่ชื่ออัลบั้ม
+                st.markdown('<div class="title-btn-container">', unsafe_allow_html=True)
+                if st.button(f"📁 {album}", key=f"title_click_{album}"):
+                    st.session_state.active_album = album
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown(f'<div class="album-sub-text">{len(images)} photos</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
 # 2. Album Detail View (หน้าแสดงรูปในอัลบั้ม)
@@ -194,7 +239,7 @@ else:
     if not images:
         st.warning("ยังไม่มีรูปภาพในอัลบั้มนี้")
     else:
-        st.caption("💡 คลิกที่ปุ่มรูปภาพเพื่อซูมดูขนาดใหญ่")
+        st.caption("💡 คลิกปุ่มรูปภาพเพื่อซูมดูขนาดใหญ่")
         cols = st.columns(3)
         for idx, img_name in enumerate(images):
             img_path = os.path.join(GALLERY_DIR, current_album, img_name)
