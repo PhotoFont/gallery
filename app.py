@@ -20,33 +20,44 @@ def get_image_base64(image_path):
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* ปรับแต่งปุ่มและระยะห่างใน Sidebar ให้เรียงชิดกันสวยงาม */
+    /* 1. ดันเนื้อหาหลักทั้งหมดขึ้นด้านบนสุด */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1rem !important;
+    }
+    
+    /* ซ่อน Header / Space ด้านบนของ Streamlit */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+
+    /* 2. บีบระยะห่างปุ่มเมนู Sidebar ให้ชิดกันแน่นสวยงาม */
     div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-        gap: 0.4rem !important;
+        gap: 0.2rem !important;
     }
 
-    .sidebar-album-btn {
-        margin-bottom: -6px !important;
+    div[data-testid="stSidebar"] div[data-testid="stElementContainer"] {
+        margin-bottom: -0.2rem !important;
     }
 
-    .sidebar-album-btn button {
+    div[data-testid="stSidebar"] button {
         width: 100% !important;
         text-align: left !important;
         border: 1px solid #e9ecef !important;
         background: #ffffff !important;
-        padding: 6px 4px !important;
+        padding: 6px 12px !important;
         font-size: 0.9rem !important;
         border-radius: 6px !important;
         box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
     }
 
-    .sidebar-album-btn button:hover {
+    div[data-testid="stSidebar"] button:hover {
         background-color: #e9ecef !important;
         color: #0066cc !important;
         border-color: #0066cc !important;
     }
 
-    /* แกลเลอรีจัดเรียงรูปภาพแบบ Grid */
+    /* การจัดวางการ์ดแกลเลอรี */
     .photo-card-btn {
         background: white;
         border: 1px solid #e9ecef;
@@ -54,18 +65,13 @@ st.markdown("""
         padding: 6px;
         text-align: center;
         box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-        transition: all 0.2s ease;
-    }
-    .photo-card-btn:hover {
-        border-color: #0066cc;
-        box-shadow: 0 6px 14px rgba(0,0,0,0.12);
     }
     
     .album-card-box {
         background: #ffffff;
         border-radius: 14px;
         border: 1px solid #e9ecef;
-        padding: 10px;
+        padding: 8px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         text-align: center;
         margin-bottom: 10px;
@@ -76,12 +82,11 @@ st.markdown("""
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 GALLERY_DIR = os.path.join(BASE_DIR, 'gallery')
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
-ADMIN_PASSWORD = "21020166"
+ADMIN_PASSWORD = "adminsecretpass"
 
 if not os.path.exists(GALLERY_DIR):
     os.makedirs(GALLERY_DIR, exist_ok=True)
 
-# คงสถานะไว้ใน Session State
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 
@@ -145,12 +150,10 @@ if not albums_list:
 else:
     for alb in albums_list:
         icon = "📂" if st.session_state.active_album == alb else "📁"
-        st.sidebar.markdown('<div class="sidebar-album-btn">', unsafe_allow_html=True)
         if st.sidebar.button(f"{icon} {alb}", key=f"sb_alb_{alb}"):
             st.session_state.active_album = alb
             st.session_state.selected_image = None
             st.rerun()
-        st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
 st.sidebar.divider()
 st.sidebar.subheader("🔐 ระบบ Admin")
@@ -214,7 +217,6 @@ if st.session_state.active_album is None:
 else:
     current_album = st.session_state.active_album
 
-    # แสดง Modal ถ้ามีการเลือกรูป
     if st.session_state.selected_image:
         zoom_path = os.path.join(GALLERY_DIR, current_album, st.session_state.selected_image)
         if os.path.exists(zoom_path):
