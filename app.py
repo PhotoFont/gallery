@@ -1,7 +1,6 @@
 import os
 import base64
 import mimetypes
-from urllib.parse import quote, unquote
 import streamlit as st
 
 st.set_page_config(page_title="Saksitpra Gallery", layout="wide")
@@ -35,7 +34,7 @@ st.markdown("""
         text-align: left !important;
         border: 1px solid #e9ecef !important;
         background: #ffffff !important;
-        padding: 6px 12px !important;
+        padding: 6px 4px !important;
         font-size: 0.9rem !important;
         border-radius: 6px !important;
         box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
@@ -47,91 +46,29 @@ st.markdown("""
         border-color: #0066cc !important;
     }
 
-    /* แกลเลอรีจัดเรียงรูปภาพแบบ Grid แน่นสวยงาม */
-    .photo-gallery {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-        gap: 14px;
-        padding: 10px 0 20px 0;
-    }
-    
-    .photo-card {
-        display: block;
-        position: relative;
-        width: 100%;
-        height: 230px;
-        background-color: #ffffff;
+    /* แกลเลอรีจัดเรียงรูปภาพแบบ Grid */
+    .photo-card-btn {
+        background: white;
         border: 1px solid #e9ecef;
         border-radius: 12px;
-        overflow: hidden;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
-        transition: all 0.25s ease-in-out;
-        text-decoration: none !important;
-    }
-    
-    .photo-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 18px rgba(0,0,0,0.15);
-        border-color: #0066cc;
-    }
-    
-    .photo-card img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
         padding: 6px;
-        background-color: #f8f9fa;
+        text-align: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        transition: all 0.2s ease;
     }
-
-    /* Grid สำหรับหน้าแสดงอัลบั้มหน้าแรก */
-    .album-gallery {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-        gap: 18px;
-        padding: 10px 0;
+    .photo-card-btn:hover {
+        border-color: #0066cc;
+        box-shadow: 0 6px 14px rgba(0,0,0,0.12);
     }
     
-    .album-card {
-        display: block;
+    .album-card-box {
         background: #ffffff;
         border-radius: 14px;
         border: 1px solid #e9ecef;
-        overflow: hidden;
+        padding: 10px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        text-decoration: none !important;
-        transition: all 0.2s ease;
-    }
-    
-    .album-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 16px rgba(0,0,0,0.12);
-    }
-    
-    .album-card img {
-        width: 100%;
-        height: 180px;
-        object-fit: contain;
-        background: #f8f9fa;
-        padding: 6px;
-    }
-    
-    .album-info {
-        padding: 12px;
         text-align: center;
-        background: #ffffff;
-        border-top: 1px solid #f1f3f5;
-    }
-    
-    .album-title {
-        font-weight: 600;
-        font-size: 1.05rem;
-        color: #212529;
-        margin-bottom: 2px;
-    }
-    
-    .album-count {
-        font-size: 0.85rem;
-        color: #6c757d;
+        margin-bottom: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -144,13 +81,16 @@ ADMIN_PASSWORD = "21020166"
 if not os.path.exists(GALLERY_DIR):
     os.makedirs(GALLERY_DIR, exist_ok=True)
 
+# คงสถานะไว้ใน Session State
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 
 if "active_album" not in st.session_state:
     st.session_state.active_album = None
 
-# ใช้สำหรับล้างค่า file_uploader
+if "selected_image" not in st.session_state:
+    st.session_state.selected_image = None
+
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
@@ -181,29 +121,20 @@ def show_image_modal(img_path, img_name, album_name):
     with col1:
         st.caption(f"📁 อัลบั้ม: **{album_name}** | 📄 ไฟล์: `{img_name}`")
     with col2:
-        if st.session_state.get("is_admin", False):
+        if st.session_state.is_admin:
             if st.button("🗑️ ลบรูปภาพนี้", type="primary", use_container_width=True):
                 if os.path.exists(img_path):
                     os.remove(img_path)
                     st.toast("ลบรูปภาพเรียบร้อยแล้ว!")
-                    if "zoom" in st.query_params:
-                        del st.query_params["zoom"]
+                    st.session_state.selected_image = None
                     st.rerun()
-
-# --- SYSTEM QUERY PARAMS HANDLER ---
-query_params = st.query_params
-
-if "album" in query_params:
-    alb_param = unquote(query_params["album"])
-    if alb_param in get_albums():
-        st.session_state.active_album = alb_param
 
 # --- SIDEBAR ---
 st.sidebar.title("📷 Gallery Menu")
 
 if st.sidebar.button("🏠 กลับหน้าหลัก"):
     st.session_state.active_album = None
-    st.query_params.clear()
+    st.session_state.selected_image = None
     st.rerun()
 
 albums_list = get_albums()
@@ -217,7 +148,7 @@ else:
         st.sidebar.markdown('<div class="sidebar-album-btn">', unsafe_allow_html=True)
         if st.sidebar.button(f"{icon} {alb}", key=f"sb_alb_{alb}"):
             st.session_state.active_album = alb
-            st.query_params["album"] = alb
+            st.session_state.selected_image = None
             st.rerun()
         st.sidebar.markdown('</div>', unsafe_allow_html=True)
 
@@ -257,52 +188,42 @@ else:
 # 1. หน้าหลัก - แสดงรายการอัลบั้มแบบ Grid
 if st.session_state.active_album is None:
     st.title("📁 อัลบั้มรูปภาพ")
-    st.caption("คลิกที่รูปปกหรือชื่ออัลบั้มเพื่อเปิดเข้าชมรูปภาพภายใน")
+    st.caption("คลิกเลือกอัลบั้มที่ต้องการเพื่อเข้าชมรูปภาพภายใน")
 
     if not albums_list:
         st.info("ยังไม่มีอัลบั้มรูปภาพ")
     else:
-        album_html = '<div class="album-gallery">'
-        for album in albums_list:
+        cols = st.columns(4)
+        for idx, album in enumerate(albums_list):
             images = get_images(album)
             cover_img_path = os.path.join(GALLERY_DIR, album, images[0]) if images else None
             
-            if cover_img_path and os.path.exists(cover_img_path):
-                img_b64, mime_type = get_image_base64(cover_img_path)
-                img_src = f"data:{mime_type};base64,{img_b64}"
-            else:
-                img_src = "https://via.placeholder.com/400x300?text=No+Images"
-            
-            encoded_album = quote(album)
-            album_html += (
-                f'<a href="?album={encoded_album}" target="_self" class="album-card">'
-                f'<img src="{img_src}" alt="{album}" />'
-                f'<div class="album-info">'
-                f'<div class="album-title">📁 {album}</div>'
-                f'<div class="album-count">{len(images)} รูปภาพ</div>'
-                f'</div>'
-                f'</a>'
-            )
-        album_html += '</div>'
-        st.markdown(album_html, unsafe_allow_html=True)
+            with cols[idx % 4]:
+                st.markdown('<div class="album-card-box">', unsafe_allow_html=True)
+                if cover_img_path and os.path.exists(cover_img_path):
+                    st.image(cover_img_path, use_container_width=True)
+                else:
+                    st.image("https://via.placeholder.com/400x300?text=No+Images", use_container_width=True)
+                
+                if st.button(f"📁 {album} ({len(images)})", key=f"main_alb_{album}", use_container_width=True):
+                    st.session_state.active_album = album
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
-# 2. หน้าแสดงรูปภาพในอัลบั้ม (คลิกรูปเพื่อซูมทันที)
+# 2. หน้าแสดงรูปภาพในอัลบั้ม
 else:
     current_album = st.session_state.active_album
-    
-    # ตรวจสอบว่ามีการคลิกรูปเพื่อซูมหรือไม่
-    if "zoom" in st.query_params:
-        zoom_file = unquote(st.query_params["zoom"])
-        del st.query_params["zoom"]
-        zoom_path = os.path.join(GALLERY_DIR, current_album, zoom_file)
+
+    # แสดง Modal ถ้ามีการเลือกรูป
+    if st.session_state.selected_image:
+        zoom_path = os.path.join(GALLERY_DIR, current_album, st.session_state.selected_image)
         if os.path.exists(zoom_path):
-            show_image_modal(zoom_path, zoom_file, current_album)
+            show_image_modal(zoom_path, st.session_state.selected_image, current_album)
 
     st.title(f"📁 อัลบั้ม: {current_album}")
     
     if st.session_state.is_admin:
         with st.expander("📤 อัปโหลดรูปภาพใหม่เข้าอัลบั้มนี้", expanded=False):
-            # ใช้ key แบบไดนามิกเพื่อให้ reset ตัว file_uploader ได้
             uploaded_files = st.file_uploader(
                 "เลือกรูปภาพ", 
                 type=['jpg', 'jpeg', 'png', 'gif', 'webp'], 
@@ -317,7 +238,6 @@ else:
                         with open(file_path, "wb") as f:
                             f.write(uploaded_file.getbuffer())
                     st.toast("อัปโหลดรูปภาพสำเร็จ!")
-                    # เพิ่มค่า uploader_key เพื่อบังคับรีเซ็ตช่องไฟล์
                     st.session_state.uploader_key += 1
                     st.rerun()
 
@@ -325,21 +245,16 @@ else:
     if not images:
         st.warning("ยังไม่มีรูปภาพในอัลบั้มนี้")
     else:
-        st.caption("💡 คลิกที่ตัวรูปภาพใดก็ได้เพื่อขยายดูภาพใหญ่")
+        st.caption("💡 คลิกที่ปุ่มใตักรอกรูปภาพเพื่อขยายดูภาพใหญ่")
         
-        gallery_html = '<div class="photo-gallery">'
-        for img_name in images:
+        cols = st.columns(5)
+        for idx, img_name in enumerate(images):
             img_path = os.path.join(GALLERY_DIR, current_album, img_name)
-            img_b64, mime_type = get_image_base64(img_path)
-            img_src = f"data:{mime_type};base64,{img_b64}"
             
-            encoded_album = quote(current_album)
-            encoded_img = quote(img_name)
-            gallery_html += (
-                f'<a href="?album={encoded_album}&zoom={encoded_img}" target="_self" class="photo-card" title="คลิกเพื่อขยายดูรูป">'
-                f'<img src="{img_src}" alt="{img_name}" />'
-                f'</a>'
-            )
-        gallery_html += '</div>'
-        
-        st.markdown(gallery_html, unsafe_allow_html=True)
+            with cols[idx % 5]:
+                st.markdown('<div class="photo-card-btn">', unsafe_allow_html=True)
+                st.image(img_path, use_container_width=True)
+                if st.button("🔍 ขยายรูป", key=f"btn_img_{img_name}", use_container_width=True):
+                    st.session_state.selected_image = img_name
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
