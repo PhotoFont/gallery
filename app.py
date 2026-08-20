@@ -4,7 +4,7 @@ import mimetypes
 from urllib.parse import quote, unquote
 import streamlit as st
 
-st.set_page_config(page_title="Photo Gallery", layout="wide")
+st.set_page_config(page_title="Saksitpra Gallery", layout="wide")
 
 def get_image_base64(image_path):
     if not os.path.exists(image_path):
@@ -21,6 +21,32 @@ def get_image_base64(image_path):
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
+    /* ปรับแต่งปุ่มและระยะห่างใน Sidebar ให้เรียงชิดกันสวยงาม */
+    div[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+        gap: 0.4rem !important;
+    }
+
+    .sidebar-album-btn {
+        margin-bottom: -6px !important;
+    }
+
+    .sidebar-album-btn button {
+        width: 100% !important;
+        text-align: left !important;
+        border: 1px solid #e9ecef !important;
+        background: #ffffff !important;
+        padding: 6px 12px !important;
+        font-size: 0.9rem !important;
+        border-radius: 6px !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03) !important;
+    }
+
+    .sidebar-album-btn button:hover {
+        background-color: #e9ecef !important;
+        color: #0066cc !important;
+        border-color: #0066cc !important;
+    }
+
     /* แกลเลอรีจัดเรียงรูปภาพแบบ Grid แน่นสวยงาม */
     .photo-gallery {
         display: grid;
@@ -107,28 +133,13 @@ st.markdown("""
         font-size: 0.85rem;
         color: #6c757d;
     }
-
-    /* เมนู Sidebar */
-    .sidebar-album-btn button {
-        width: 100% !important;
-        text-align: left !important;
-        border: none !important;
-        background: transparent !important;
-        padding: 6px 8px !important;
-        font-size: 0.9rem !important;
-        border-radius: 4px !important;
-    }
-    .sidebar-album-btn button:hover {
-        background-color: #e9ecef !important;
-        color: #0066cc !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 GALLERY_DIR = os.path.join(BASE_DIR, 'gallery')
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
-ADMIN_PASSWORD = "adminsecretpass"
+ADMIN_PASSWORD = "21020166"
 
 if not os.path.exists(GALLERY_DIR):
     os.makedirs(GALLERY_DIR, exist_ok=True)
@@ -139,22 +150,27 @@ if "is_admin" not in st.session_state:
 if "active_album" not in st.session_state:
     st.session_state.active_album = None
 
+# ใช้สำหรับล้างค่า file_uploader
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
 def get_albums():
     if not os.path.exists(GALLERY_DIR):
         return []
-    return [
+    albums = [
         d for d in os.listdir(GALLERY_DIR)
         if os.path.isdir(os.path.join(GALLERY_DIR, d)) and not d.startswith('.')
     ]
+    return sorted(albums)
 
 def get_images(album_name):
     album_path = os.path.join(GALLERY_DIR, album_name)
     if not os.path.exists(album_path):
         return []
-    return [
+    return sorted([
         f for f in os.listdir(album_path)
         if os.path.splitext(f)[1].lower() in ALLOWED_EXTENSIONS
-    ]
+    ])
 
 # Dialog ขยายรูปภาพแบบเต็มจอ
 @st.dialog("🖼️ ภาพขยาย", width="large")
@@ -258,7 +274,6 @@ if st.session_state.active_album is None:
                 img_src = "https://via.placeholder.com/400x300?text=No+Images"
             
             encoded_album = quote(album)
-            # สำคัญ: เขียน HTML แบบไม่มี Indentation เพื่อไม่ให้ Markdown มองเป็น Code Block
             album_html += (
                 f'<a href="?album={encoded_album}" target="_self" class="album-card">'
                 f'<img src="{img_src}" alt="{album}" />'
@@ -278,7 +293,7 @@ else:
     # ตรวจสอบว่ามีการคลิกรูปเพื่อซูมหรือไม่
     if "zoom" in st.query_params:
         zoom_file = unquote(st.query_params["zoom"])
-        del st.query_params["zoom"]  # ล้างเพื่อไม่ให้เปิดค้างเมื่อปิดป๊อปอัป
+        del st.query_params["zoom"]
         zoom_path = os.path.join(GALLERY_DIR, current_album, zoom_file)
         if os.path.exists(zoom_path):
             show_image_modal(zoom_path, zoom_file, current_album)
@@ -287,7 +302,13 @@ else:
     
     if st.session_state.is_admin:
         with st.expander("📤 อัปโหลดรูปภาพใหม่เข้าอัลบั้มนี้", expanded=False):
-            uploaded_files = st.file_uploader("เลือกรูปภาพ", type=['jpg', 'jpeg', 'png', 'gif', 'webp'], accept_multiple_files=True)
+            # ใช้ key แบบไดนามิกเพื่อให้ reset ตัว file_uploader ได้
+            uploaded_files = st.file_uploader(
+                "เลือกรูปภาพ", 
+                type=['jpg', 'jpeg', 'png', 'gif', 'webp'], 
+                accept_multiple_files=True,
+                key=f"uploader_{st.session_state.uploader_key}"
+            )
             if st.button("บันทึกรูปภาพ"):
                 if uploaded_files:
                     target_dir = os.path.join(GALLERY_DIR, current_album)
@@ -295,7 +316,9 @@ else:
                         file_path = os.path.join(target_dir, uploaded_file.name)
                         with open(file_path, "wb") as f:
                             f.write(uploaded_file.getbuffer())
-                    st.success("อัปโหลดรูปภาพสำเร็จ!")
+                    st.toast("อัปโหลดรูปภาพสำเร็จ!")
+                    # เพิ่มค่า uploader_key เพื่อบังคับรีเซ็ตช่องไฟล์
+                    st.session_state.uploader_key += 1
                     st.rerun()
 
     images = get_images(current_album)
@@ -312,7 +335,6 @@ else:
             
             encoded_album = quote(current_album)
             encoded_img = quote(img_name)
-            # สำคัญ: เขียน HTML แบบไม่มี Indentation เพื่อไม่ให้ Markdown มองเป็น Code Block
             gallery_html += (
                 f'<a href="?album={encoded_album}&zoom={encoded_img}" target="_self" class="photo-card" title="คลิกเพื่อขยายดูรูป">'
                 f'<img src="{img_src}" alt="{img_name}" />'
